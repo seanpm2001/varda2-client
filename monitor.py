@@ -25,10 +25,17 @@ while len(tasks):
             created = datetime.datetime.strptime(resp.json()['created_date'], '%Y-%m-%dT%H:%M:%S.%f')
             start = datetime.datetime.strptime(resp.json()['start_date'], '%Y-%m-%dT%H:%M:%S.%f')
             end = datetime.datetime.strptime(resp.json()['end_date'], '%Y-%m-%dT%H:%M:%S.%f')
+            pre_stats = resp.json()['pre_stats']
+            post_stats = resp.json()['post_stats']
+            diff_stats = {k: post_stats[k] - v for k, v in pre_stats.items()}
             queuing = start - created
             running = end - start
 
-            print(f'Task {task} is Done. Queuing: {queuing}. Running: {running}')
+            cov_norm = (1000000 * running.seconds + running.microseconds) / diff_stats['coverage']
+            var_norm = (1000000 * running.seconds + running.microseconds) / (diff_stats['snv'] + diff_stats['mnv'])
+
+            print(f'Task {task} is Done. Queuing: {queuing}. Running: {running} Diff_stats: {diff_stats} Cov_norm: {cov_norm} Var_Norm: {var_norm}')
+
             tasks.remove(task)
 
     time.sleep(1)
