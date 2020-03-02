@@ -9,7 +9,7 @@ urllib3.disable_warnings(urllib3.exceptions.SubjectAltNameWarning)
 
 token = os.environ['VARDA_TOKEN']
 
-def submit(samplesheet_fn, tasks_fn, lab_name, disease_code):
+def submit(samplesheet_fn, tasks_fn, disease_code):
     s = requests.Session()
     s.headers = {"Authorization": "Bearer %s" % token}
     s.verify = 'nginx-selfsigned.crt'
@@ -29,9 +29,9 @@ def submit(samplesheet_fn, tasks_fn, lab_name, disease_code):
         print('%s %s %s' % (sample_id, var_file, cov_file))
 
         resp = s.post('https://res-vard-db01.researchlumc.nl/sample', json={
+            'sample_ids': [1,2],
             'variant_filename': var_file,
             'coverage_filename': cov_file,
-            'lab': lab_name,
             'lab_sample_id': sample_id,
             'disease_code': disease_code,
         })
@@ -54,16 +54,13 @@ def main():
             help="Sample sheet file: sample_id, gvcf, vcf, bam")
     ap.add_argument("-t", "--tasks-file", required=True,
                     help="Filename of file to store task uuids")
-    ap.add_argument("-l", "--lab-name", required=True,
-                    help="Name of the lab")
     ap.add_argument("-d", "--disease-code", required=True,
-                    help="Name of the lab")
+                    help="Disease indication code")
     args = vars(ap.parse_args())
 
     submit(
             samplesheet_fn=args['sample_sheet'],
             tasks_fn=args['tasks_file'],
-            lab_name=args['lab_name'],
             disease_code=args['disease_code']
     )
 
