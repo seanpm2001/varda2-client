@@ -3,6 +3,7 @@ import argparse
 import csv
 import datetime
 import os
+import pprint
 import requests
 import time
 import urllib3
@@ -41,6 +42,32 @@ def annotate(tasks_fn, samplesheet_fn, session, server):
     for task in tasks:
         fp.write("%s\n" % task)
     fp.close()
+
+
+def task(session, server, uuid):
+
+    try:
+        print(f"Task query ...")
+        resp = session.get(f'https://{server}/task/{uuid}')
+        resp.raise_for_status()
+        print("done!")
+        pprint.pprint(resp.json())
+    except requests.exceptions.HTTPError as err:
+        print("failed!")
+        raise SystemExit(err)
+
+
+def sample(session, server, uuid):
+
+    try:
+        print(f"Sample query ...")
+        resp = session.get(f'https://{server}/sample/{uuid}')
+        resp.raise_for_status()
+        print("done!")
+        pprint.pprint(resp.json())
+    except requests.exceptions.HTTPError as err:
+        print("failed!")
+        raise SystemExit(err)
 
 
 def seq(session, server, sequence):
@@ -352,6 +379,20 @@ def main():
     mnv_parser.add_argument("-i", "--inserted", required=True, help="Inserted sequence")
     mnv_parser.add_argument("-r", "--reference", required=True, help="Chromosome to look at")
     mnv_parser.set_defaults(func=mnv)
+
+    #
+    # task query subcommand
+    #
+    task_parser = subparsers.add_parser('task', help='Task query')
+    task_parser.add_argument("-u", "--uuid", required=True, help="Task UUID")
+    task_parser.set_defaults(func=task)
+
+    #
+    # sample query subcommand
+    #
+    sample_parser = subparsers.add_parser('sample', help='Sample query')
+    sample_parser.add_argument("-u", "--uuid", required=True, help="Sample UUID")
+    sample_parser.set_defaults(func=sample)
 
     #
     # END OF SUB-COMMANDS
