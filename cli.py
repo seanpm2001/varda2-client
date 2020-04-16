@@ -60,6 +60,24 @@ def snv(session, server, reference, position, inserted):
         raise SystemExit(err)
 
 
+def mnv(session, server, reference, start, end, inserted):
+
+    try:
+        print(f"MNV query ...")
+        resp = session.post(f'https://{server}/mnv/query', json={
+            "start": start,
+            "end": end,
+            "inserted_seq": inserted,
+            "reference_seq_id": reference,
+        })
+        resp.raise_for_status()
+        print("done!")
+        print(resp.json()["message"])
+    except requests.exceptions.HTTPError as err:
+        print("failed!")
+        raise SystemExit(err)
+
+
 def stab(session, server, reference, start, end):
 
     try:
@@ -302,6 +320,16 @@ def main():
     snv_parser.add_argument("-i", "--inserted", required=True, help="Inserted base")
     snv_parser.add_argument("-r", "--reference", required=True, help="Chromosome to look at")
     snv_parser.set_defaults(func=snv)
+
+    #
+    # mnv query subcommand
+    #
+    mnv_parser = subparsers.add_parser('mnv', help='MNV query')
+    mnv_parser.add_argument("-s", "--start", required=True, help="Start of region")
+    mnv_parser.add_argument("-e", "--end", required=True, help="End of region")
+    mnv_parser.add_argument("-i", "--inserted", required=True, help="Inserted sequence")
+    mnv_parser.add_argument("-r", "--reference", required=True, help="Chromosome to look at")
+    mnv_parser.set_defaults(func=mnv)
 
     #
     # END OF SUB-COMMANDS
