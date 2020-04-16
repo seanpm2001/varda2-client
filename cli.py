@@ -43,6 +43,21 @@ def annotate(tasks_fn, samplesheet_fn, session, server):
     fp.close()
 
 
+def seq(session, server, sequence):
+
+    try:
+        print(f"Sequence query ...")
+        resp = session.post(f'https://{server}/seq/query', json={
+            "inserted_seq": sequence,
+        })
+        resp.raise_for_status()
+        print("done!")
+        print(resp.json()["message"])
+    except requests.exceptions.HTTPError as err:
+        print("failed!")
+        raise SystemExit(err)
+
+
 def snv(session, server, reference, position, inserted):
 
     try:
@@ -311,6 +326,13 @@ def main():
     stab_parser.add_argument("-e", "--end", required=True, help="End of region")
     stab_parser.add_argument("-r", "--reference", required=True, help="Chromosome to look at")
     stab_parser.set_defaults(func=stab)
+
+    #
+    # sequence query subcommand
+    #
+    seq_parser = subparsers.add_parser('seq', help='Sequence query')
+    seq_parser.add_argument("-s", "--sequence", required=True, help="Sequence")
+    seq_parser.set_defaults(func=seq)
 
     #
     # snv query subcommand
