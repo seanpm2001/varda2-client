@@ -36,12 +36,28 @@ def annotate(tasks_fn, samplesheet_fn, session, server):
         # Record tasks
         tasks.append(task_uuid)
 
-
     # Write task uuid's to file
     fp = open(tasks_fn, "w")
     for task in tasks:
         fp.write("%s\n" % task)
     fp.close()
+
+
+def snv(session, server, reference, position, inserted):
+
+    try:
+        print(f"SNV query ...")
+        resp = session.post(f'https://{server}/snv/query', json={
+            "inserted": inserted,
+            "reference_seq_id": reference,
+            "position": position,
+        })
+        resp.raise_for_status()
+        print("done!")
+        print(resp.json()["message"])
+    except requests.exceptions.HTTPError as err:
+        print("failed!")
+        raise SystemExit(err)
 
 
 def stab(session, server, reference, start, end):
@@ -277,6 +293,15 @@ def main():
     stab_parser.add_argument("-e", "--end", required=True, help="End of region")
     stab_parser.add_argument("-r", "--reference", required=True, help="Chromosome to look at")
     stab_parser.set_defaults(func=stab)
+
+    #
+    # snv query subcommand
+    #
+    snv_parser = subparsers.add_parser('snv', help='SNV query')
+    snv_parser.add_argument("-p", "--position", required=True, help="Locus position")
+    snv_parser.add_argument("-i", "--inserted", required=True, help="Inserted base")
+    snv_parser.add_argument("-r", "--reference", required=True, help="Chromosome to look at")
+    snv_parser.set_defaults(func=snv)
 
     #
     # END OF SUB-COMMANDS
