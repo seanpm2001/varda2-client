@@ -283,10 +283,10 @@ def upload(var_fn, cov_fn, disease_code, lab_sample_id, task_fn, server, session
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    subparsers = ap.add_subparsers()
-    ap.add_argument("-s", "--server", required=False, default=default_server, help="Server hostname")
-    ap.add_argument("-c", "--certificate", required=False, help="Certificate")
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    parser.add_argument("-s", "--server", required=False, default=default_server, help="Server hostname")
+    parser.add_argument("-c", "--certificate", required=False, help="Certificate")
 
     #
     # Upload subcommand
@@ -403,10 +403,10 @@ def main():
     #
     session = requests.Session()
     session.headers = {"Authorization": "Bearer %s" % token}
-    ap.set_defaults(session=session)
+    parser.set_defaults(session=session)
 
     # Process arguments and put into dict
-    args = vars(ap.parse_args())
+    args = vars(parser.parse_args())
 
     # Specify custom cert for self-signed server certificate
     certificate = args.pop("certificate", None)
