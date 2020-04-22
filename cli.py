@@ -322,11 +322,11 @@ def main():
     #
     # annotate subcommand
     #
-    annotate_parser = subparsers.add_parser('annotate', help='annotate file')
+    annotate_parser = subparsers.add_parser('annotate', help='Annotate file(s) with optional upload')
     annotate_parser.set_defaults(func=annotate)
     annotate_parser.add_argument("-t", "--tasks-file", required=True, dest="tasks_fn",
                                  help="Filename of file to store task uuids")
-    group = annotate_parser.add_mutually_exclusive_group()
+    group = annotate_parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-s", "--sample-sheet", required=False, dest="samplesheet_fn",
                        help="Sample sheet file: sample_id, gvcf, vcf, bam")
     group.add_argument("-v", "--variants-file", required=False, dest="var_fn",
