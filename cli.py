@@ -223,37 +223,19 @@ def monitor(tasks_fn, server, session):
         time.sleep(1)
 
 
-def upload(var_fn, cov_fn, disease_code, lab_sample_id, task_fn, server, session):
+def upload_helper(session, server, filename, lab_sample_id, disease_code, file_type):
 
-    with open(cov_fn, 'rb') as f:
+    with open(filename, 'rb') as f:
         payload = {
             "lab_sample_id": lab_sample_id,
             "disease_code": disease_code,
-            "type": "coverage",
+            "type": file_type,
         }
 
         try:
-            print("Uploading coverage file ...")
             resp = session.post(f'https://{server}/file', data=payload,
-                          files={"file": f})
-            resp.raise_for_status()
-            remote_cov_fn = resp.json()["filename"]
-            print("done!")
-        except requests.exceptions.HTTPError as err:
-            print("failed!")
-            raise SystemExit(err)
-
-    with open(var_fn, 'rb') as f:
-        payload = {
-            "lab_sample_id": lab_sample_id,
-            "disease_code": disease_code,
-            "type": "variant",
-        }
-
-        try:
-            print("Uploading variant file ...")
-            resp = session.post(f'https://{server}/file', data=payload,
-                          files={"file": f})
+                                files={"file": f})
+            print(resp.json())
             resp.raise_for_status()
             remote_var_fn = resp.json()["filename"]
             print("done!")
@@ -261,8 +243,18 @@ def upload(var_fn, cov_fn, disease_code, lab_sample_id, task_fn, server, session
             print("failed!")
             raise SystemExit(err)
 
+    return remote_var_fn
+
+
+def upload(var_fn, cov_fn, disease_code, lab_sample_id, task_fn, server, session):
+
+    print("Uploading coverage file ...")
+    remote_cov_fn = upload_helper(session, server, cov_fn, lab_sample_id, disease_code, "coverage")
+    print("Uploading variant file ...")
+    remote_var_fn = upload_helper(session, server, var_fn, lab_sample_id, disease_code, "variant")
+
     try:
-        print("Creating sample file ...")
+        print("Creating sample entry ...")
         resp = session.post(f'https://{server}/sample', json={
             'variant_filename': remote_var_fn,
             'coverage_filename': remote_cov_fn,
