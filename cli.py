@@ -12,24 +12,32 @@ default_server = "varda.lumc.nl"
 token = os.environ['VARDA_TOKEN']
 
 
-def annotate(tasks_fn, samplesheet_fn, session, server):
+def annotate(tasks_fn, samplesheet_fn, var_fn, session, server, lab_sample_id):
 
-    # Get sample id's from file
-    sample_ids = []
-    with open(samplesheet_fn, newline='') as csvfile:
-        reader = csv.reader(csvfile, delimiter=' ')
-        for row in reader:
-            sample_ids.append(row[0])
+    assert not (samplesheet_fn and var_fn)
+
+    tuples = []
+    if samplesheet_fn:
+
+        # Get sample id's from file
+        with open(samplesheet_fn, newline='') as csvfile:
+            reader = csv.reader(csvfile, delimiter=' ')
+            for row in reader:
+                sample_id = row[0]
+                var_file = '%s_variants.varda' % sample_id
+                tuples.append((sample_id, var_file))
+
+    else:
+        print("Uploading variant file ...")
+        remote_variant_fn = upload_helper(session, server, var_fn, lab_sample_id, "N/A", "variant")
+        tuples.append((lab_sample_id, remote_variant_fn))
 
     # Assuming the files are already in the uploads directory remotely, create and submit samples
     tasks = []
-    for sample_id in sample_ids:
-        var_file = '%s_variants.varda' % sample_id
-        print('%s %s' % (sample_id, var_file))
-
+    for pair in tuples:
         resp = session.post(f'https://{server}/annotation', json={
-            'variant_filename': var_file,
-            'lab_sample_id': sample_id,
+            'lab_sample_id': pair[0],
+            'variant_filename': pair[1],
         })
         print(resp.json())
         task_uuid = resp.json()['task']
@@ -332,10 +340,15 @@ def main():
     #
     annotate_parser = subparsers.add_parser('annotate', help='annotate file')
     annotate_parser.set_defaults(func=annotate)
-    annotate_parser.add_argument("-s", "--sample-sheet", required=True, dest="samplesheet_fn",
-                               help="Sample sheet file: sample_id, gvcf, vcf, bam")
     annotate_parser.add_argument("-t", "--tasks-file", required=True, dest="tasks_fn",
-                               help="Filename of file to store task uuids")
+                                 help="Filename of file to store task uuids")
+    group = annotate_parser.add_mutually_exclusive_group()
+    group.add_argument("-s", "--sample-sheet", required=False, dest="samplesheet_fn",
+                       help="Sample sheet file: sample_id, gvcf, vcf, bam")
+    group.add_argument("-v", "--variants-file", required=False, dest="var_fn",
+                       help="Varda variants file")
+    annotate_parser.add_argument("-l", "--lab-sample-id", required=False, default="N/A",
+                                 help="Local sample id")
 
     #
     # stab subcommand
