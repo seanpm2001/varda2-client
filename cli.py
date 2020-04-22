@@ -12,6 +12,57 @@ default_server = "varda.lumc.nl"
 token = os.environ['VARDA_TOKEN']
 
 
+def submit(samplesheet_fn, var_fn, cov_fn, disease_code, lab_sample_id, tasks_fn, server, session):
+
+    assert not (samplesheet_fn and var_fn)
+
+    triples = []
+    if samplesheet_fn:
+
+        # Get sample id's from file
+        sample_ids = []
+        with open(samplesheet_fn, newline='') as csvfile:
+            reader = csv.reader(csvfile, delimiter=' ')
+            for row in reader:
+                sample_id = row[0]
+                var_file = '%s_variants.varda' % sample_id
+                cov_file = '%s_coverage.varda' % sample_id
+                triples.append((sample_id, var_file, cov_file))
+    else:
+        print("Uploading coverage file ...")
+        remote_cov_fn = upload_helper(session, server, cov_fn, lab_sample_id, disease_code, "coverage")
+        print("Uploading variant file ...")
+        remote_var_fn = upload_helper(session, server, var_fn, lab_sample_id, disease_code, "variant")
+        triples.append((lab_sample_id, remote_var_fn, remote_cov_fn))
+
+    tasks = []
+    for pair in triples:
+        try:
+            print("Creating sample entry ...")
+            resp = session.post(f'https://{server}/sample', json={
+                'lab_sample_id': pair[0],
+                'variant_filename': pair[1],
+                'coverage_filename': pair[2],
+                'disease_code': disease_code,
+            })
+            resp.raise_for_status()
+            print("done!")
+
+        except requests.exceptions.HTTPError as err:
+            print("failed!")
+            raise SystemExit(err)
+
+        # Record tasks
+        task_uuid = resp.json()['task']
+        tasks.append(task_uuid)
+
+    # Write task uuid's to file
+    fp = open(tasks_fn, "w")
+    for t in tasks:
+        fp.write("%s\n" % t)
+    fp.close()
+
+
 def annotate(tasks_fn, samplesheet_fn, var_fn, session, server, lab_sample_id):
 
     assert not (samplesheet_fn and var_fn)
@@ -173,39 +224,6 @@ def save(session, server):
             raise SystemExit(err)
 
 
-def submit(samplesheet_fn, tasks_fn, disease_code, session, server):
-
-    # Get sample id's from file
-    sample_ids = []
-    with open(samplesheet_fn, newline='') as csvfile:
-        reader = csv.reader(csvfile, delimiter=' ')
-        for row in reader:
-            sample_ids.append(row[0])
-
-    # Assuming the files are already in the uploads directory remotely, create and submit samples
-    tasks = []
-    for sample_id in sample_ids:
-        var_file = '%s_variants.varda' % sample_id
-        cov_file = '%s_coverage.varda' % sample_id
-        print('%s %s %s' % (sample_id, var_file, cov_file))
-
-        resp = session.post(f'https://{server}/sample', json={
-            'variant_filename': var_file,
-            'coverage_filename': cov_file,
-            'lab_sample_id': sample_id,
-            'disease_code': disease_code,
-        })
-        task_uuid = resp.json()['task']
-
-        # Record tasks
-        tasks.append(task_uuid)
-
-    # Write task uuid's to file
-    fp = open(tasks_fn, "w")
-    for task in tasks:
-        fp.write("%s\n" % task)
-    fp.close()
-
 
 def monitor(tasks_fn, server, session):
     tasks = [line.rstrip('\n') for line in open(tasks_fn)]
@@ -254,32 +272,6 @@ def upload_helper(session, server, filename, lab_sample_id, disease_code, file_t
     return remote_var_fn
 
 
-def upload(var_fn, cov_fn, disease_code, lab_sample_id, task_fn, server, session):
-
-    print("Uploading coverage file ...")
-    remote_cov_fn = upload_helper(session, server, cov_fn, lab_sample_id, disease_code, "coverage")
-    print("Uploading variant file ...")
-    remote_var_fn = upload_helper(session, server, var_fn, lab_sample_id, disease_code, "variant")
-
-    try:
-        print("Creating sample entry ...")
-        resp = session.post(f'https://{server}/sample', json={
-            'variant_filename': remote_var_fn,
-            'coverage_filename': remote_cov_fn,
-            'lab_sample_id': lab_sample_id,
-            'disease_code': disease_code,
-        })
-        resp.raise_for_status()
-        print("done!")
-
-        # Write task uuid's to file
-        fp = open(task_fn, "w")
-        fp.write("%s\n" % resp.json()['task'])
-        fp.close()
-
-    except requests.exceptions.HTTPError as err:
-        print("failed!")
-        raise SystemExit(err)
 
 
 def main():
@@ -289,20 +281,23 @@ def main():
     parser.add_argument("-c", "--certificate", required=False, help="Certificate")
 
     #
-    # Upload subcommand
+    # Submit subcommand
     #
-    upload_parser = subparsers.add_parser('upload', help='Upload files to varda server')
-    upload_parser.add_argument("-v", "--variants-file", required=True, dest="var_fn",
-                    help="Varda variants file")
-    upload_parser.add_argument("-c", "--coverage", required=True, dest="cov_fn",
-                    help="Varda coverage file")
-    upload_parser.add_argument("-d", "--disease-code", required=True,
-                    help="Disease indication code")
-    upload_parser.add_argument("-l", "--lab-sample-id", required=True,
-                    help="Local sample id")
-    upload_parser.add_argument("-t", "--task-file", required=True, dest="task_fn",
-                    help="Filename of file to store task uuid")
-    upload_parser.set_defaults(func=upload)
+    submit_parser = subparsers.add_parser('submit', help='Submit without upload')
+    submit_parser.set_defaults(func=submit)
+    submit_parser.add_argument("-t", "--tasks-file", required=True, dest="tasks_fn",
+                               help="Filename of file to store task uuids")
+    submit_parser.add_argument("-d", "--disease-code", required=True,
+                               help="Disease indication code")
+    submit_parser.add_argument("-l", "--lab-sample-id", required=False,
+                               help="Local sample id")
+    group = submit_parser.add_mutually_exclusive_group(required=True)
+    submit_parser.add_argument("-c", "--coverage", required=False, dest="cov_fn",
+                               help="Varda coverage file")
+    group.add_argument("-s", "--sample-sheet", required=False, dest="samplesheet_fn",
+                       help="Sample sheet file: sample_id, gvcf, vcf, bam")
+    group.add_argument("-v", "--variants-file", required=False, dest="var_fn",
+                       help="Varda variants file")
 
     #
     # Monitor subcommand
@@ -311,17 +306,6 @@ def main():
     monitor_parser.add_argument("-t", "--task-file", required=True, help="Filename of tasks to monitor", dest="tasks_fn")
     monitor_parser.set_defaults(func=monitor)
 
-    #
-    # Submit subcommand
-    #
-    submit_parser = subparsers.add_parser('submit', help='Submit without upload')
-    submit_parser.add_argument("-s", "--sample-sheet", required=True, dest="samplesheet_fn",
-                    help="Sample sheet file: sample_id, gvcf, vcf, bam")
-    submit_parser.add_argument("-t", "--tasks-file", required=True, dest="tasks_fn",
-                    help="Filename of file to store task uuids")
-    submit_parser.add_argument("-d", "--disease-code", required=True,
-                    help="Disease indication code")
-    submit_parser.set_defaults(func=submit)
 
     #
     # Save subcommand
