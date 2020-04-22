@@ -23,7 +23,7 @@ def annotate(tasks_fn, samplesheet_fn, session, server):
 
     # Assuming the files are already in the uploads directory remotely, create and submit samples
     tasks = []
-    for sample_id in sample_ids[0:]:
+    for sample_id in sample_ids:
         var_file = '%s_variants.varda' % sample_id
         print('%s %s' % (sample_id, var_file))
 
