@@ -39,8 +39,8 @@ def annotate(tasks_fn, samplesheet_fn, session, server):
 
     # Write task uuid's to file
     fp = open(tasks_fn, "w")
-    for task in tasks:
-        fp.write("%s\n" % task)
+    for t in tasks:
+        fp.write("%s\n" % t)
     fp.close()
 
 
