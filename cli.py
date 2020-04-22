@@ -395,7 +395,8 @@ def main():
     parser.set_defaults(session=session)
 
     # Process arguments and put into dict
-    args = vars(parser.parse_args())
+    raw_args = parser.parse_args()
+    args = vars(raw_args)
 
     # Specify custom cert for self-signed server certificate
     certificate = args.pop("certificate", None)
@@ -407,7 +408,13 @@ def main():
 
     # Don't want to pass "func" as an argument
     func = args.pop('func', None)
+
     if func:
+        print(args)
+        if func == submit and not args['samplesheet_fn'] and \
+                not all(args[x] is not None for x in ['var_fn', 'cov_fn', 'lab_sample_id', 'disease_code']):
+            parser.error('--variants-file, --coverage-file, --lab_sample_id and --disease_code must be given together')
+
         func(**args)
     else:
         parser.print_help()
