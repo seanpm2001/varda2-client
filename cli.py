@@ -420,6 +420,8 @@ def main():
     func = args.pop('func', None)
     if func:
         func(**args)
+    else:
+        parser.print_help()
 
 
 # Entry point of we are called as standalone script
