@@ -387,23 +387,26 @@ def main():
     #
 
     #
+    # Initialize session
+    #
+    session = requests.Session()
+    parser.set_defaults(session=session)
+
+    #
     # Process arguments and put into dict
     #
     raw_args = parser.parse_args()
     args = vars(raw_args)
 
     #
-    # Initialize session
+    # Get token and add to header
     #
     try:
         token = os.environ[token_env]
     except KeyError:
         print(f"Put API token in {token_env} environment variable.")
         sys.exit(1)
-
-    session = requests.Session()
     session.headers = {"Authorization": "Bearer %s" % token}
-    parser.set_defaults(session=session)
 
     # Specify custom cert for self-signed server certificate
     certificate = args.pop("certificate", None)
