@@ -387,6 +387,12 @@ def main():
     #
 
     #
+    # Process arguments and put into dict
+    #
+    raw_args = parser.parse_args()
+    args = vars(raw_args)
+
+    #
     # Initialize session
     #
     try:
@@ -398,10 +404,6 @@ def main():
     session = requests.Session()
     session.headers = {"Authorization": "Bearer %s" % token}
     parser.set_defaults(session=session)
-
-    # Process arguments and put into dict
-    raw_args = parser.parse_args()
-    args = vars(raw_args)
 
     # Specify custom cert for self-signed server certificate
     certificate = args.pop("certificate", None)
