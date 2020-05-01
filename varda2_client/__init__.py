@@ -7,9 +7,10 @@ import pprint
 import requests
 import time
 import urllib3
+import sys
 
 default_server = "varda.lumc.nl"
-token = os.environ['VARDA_TOKEN']
+token_env = "VARDA_TOKEN"
 
 
 def submit(samplesheet_fn, var_fn, cov_fn, disease_code, lab_sample_id, tasks_fn, server, session):
@@ -388,6 +389,12 @@ def main():
     #
     # Initialize session
     #
+    try:
+        token = os.environ[token_env]
+    except KeyError:
+        print(f"Put API token in {token_env} environment variable.")
+        sys.exit(1)
+
     session = requests.Session()
     session.headers = {"Authorization": "Bearer %s" % token}
     parser.set_defaults(session=session)
