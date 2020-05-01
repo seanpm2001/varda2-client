@@ -272,8 +272,6 @@ def upload_helper(session, server, filename, lab_sample_id, disease_code, file_t
     return remote_var_fn
 
 
-
-
 def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
