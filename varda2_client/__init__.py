@@ -225,7 +225,6 @@ def save(session, server):
             raise SystemExit(err)
 
 
-
 def monitor(tasks_fn, server, session):
     tasks = [line.rstrip('\n') for line in open(tasks_fn)]
 
@@ -262,7 +261,6 @@ def upload_helper(session, server, filename, lab_sample_id, disease_code, file_t
         try:
             resp = session.post(f'https://{server}/file', data=payload,
                                 files={"file": f})
-            print(resp.json())
             resp.raise_for_status()
             remote_var_fn = resp.json()["filename"]
             print("done!")
@@ -411,7 +409,6 @@ def main():
     # Specify custom cert for self-signed server certificate
     certificate = args.pop("certificate", None)
     if certificate:
-        print("use certificate")
         session.verify = certificate
         # Silence warning
         urllib3.disable_warnings(urllib3.exceptions.SubjectAltNameWarning)
@@ -420,7 +417,6 @@ def main():
     func = args.pop('func', None)
 
     if func:
-        print(args)
         if func == submit and not args['samplesheet_fn'] and \
                 not all(args[x] is not None for x in ['var_fn', 'cov_fn', 'lab_sample_id', 'disease_code']):
             parser.error('--variants-file, --coverage-file, --lab_sample_id and --disease_code must be given together')
