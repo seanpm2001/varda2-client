@@ -8,20 +8,19 @@ import requests
 import time
 import urllib3
 import sys
+import json
 
 default_server = "varda.lumc.nl"
 token_env = "VARDA_TOKEN"
 
 
-def submit(samplesheet_fn, var_fn, cov_fn, disease_code, lab_sample_id, tasks_fn, server, session):
+def submit(samplesheet_fn, var_fn, cov_fn, disease_code, lab_sample_id, server, session, verbose):
 
     assert not (samplesheet_fn and var_fn)
 
     triples = []
     if samplesheet_fn:
 
-        # Get sample id's from file
-        sample_ids = []
         with open(samplesheet_fn, newline='') as csvfile:
             reader = csv.reader(csvfile, delimiter=' ')
             for row in reader:
@@ -30,41 +29,44 @@ def submit(samplesheet_fn, var_fn, cov_fn, disease_code, lab_sample_id, tasks_fn
                 cov_file = '%s_coverage.varda' % sample_id
                 triples.append((sample_id, var_file, cov_file))
     else:
-        print("Uploading coverage file ...")
-        remote_cov_fn = upload_helper(session, server, cov_fn, lab_sample_id, disease_code, "coverage")
-        print("Uploading variant file ...")
-        remote_var_fn = upload_helper(session, server, var_fn, lab_sample_id, disease_code, "variant")
+        if verbose:
+            print("Uploading coverage file ...", file=sys.stderr)
+        remote_cov_fn = upload_helper(session, server, cov_fn, lab_sample_id, disease_code, "coverage", verbose)
+        if verbose:
+            print("Uploading variant file ...", file=sys.stderr)
+        remote_var_fn = upload_helper(session, server, var_fn, lab_sample_id, disease_code, "variant", verbose)
         triples.append((lab_sample_id, remote_var_fn, remote_cov_fn))
 
-    tasks = []
-    for pair in triples:
+    responses = {}
+    for entry in triples:
+        lab_sample_id = entry[0]
+        variant_filename = entry[1]
+        coverage_filename = entry[2]
         try:
-            print("Creating sample entry ...")
+            if verbose:
+                print("Creating sample entry ...", file=sys.stderr)
             resp = session.post(f'https://{server}/sample', json={
-                'lab_sample_id': pair[0],
-                'variant_filename': pair[1],
-                'coverage_filename': pair[2],
+                'lab_sample_id': lab_sample_id,
+                'variant_filename': variant_filename,
+                'coverage_filename': coverage_filename,
                 'disease_code': disease_code,
             })
             resp.raise_for_status()
-            print("done!")
+            if verbose:
+                print("done!", file=sys.stderr)
 
         except requests.exceptions.HTTPError as err:
-            print("failed!")
+            if verbose:
+                print("failed!", file=sys.stderr)
             raise SystemExit(err)
 
-        # Record tasks
-        task_uuid = resp.json()['task']
-        tasks.append(task_uuid)
+        # Record response
+        responses[lab_sample_id] = resp.json()
 
-    # Write task uuid's to file
-    fp = open(tasks_fn, "w")
-    for t in tasks:
-        fp.write("%s\n" % t)
-    fp.close()
+    print(json.dumps(responses))
 
 
-def annotate(tasks_fn, samplesheet_fn, var_fn, session, server, lab_sample_id):
+def annotate(samplesheet_fn, var_fn, session, server, lab_sample_id, verbose):
 
     assert not (samplesheet_fn and var_fn)
 
@@ -80,92 +82,99 @@ def annotate(tasks_fn, samplesheet_fn, var_fn, session, server, lab_sample_id):
                 tuples.append((sample_id, var_file))
 
     else:
-        print("Uploading variant file ...")
-        remote_variant_fn = upload_helper(session, server, var_fn, lab_sample_id, "N/A", "variant")
+        if verbose:
+            print("Uploading variant file ...", file=sys.stderr)
+        remote_variant_fn = upload_helper(session, server, var_fn, lab_sample_id, "N/A", "variant", verbose)
         tuples.append((lab_sample_id, remote_variant_fn))
 
     # Assuming the files are already in the uploads directory remotely, create and submit samples
-    tasks = []
+    responses = {}
     for pair in tuples:
         resp = session.post(f'https://{server}/annotation', json={
             'lab_sample_id': pair[0],
             'variant_filename': pair[1],
         })
-        print(resp.json())
-        task_uuid = resp.json()['task']
+        # Record responses
+        responses[pair[0]] = resp.json()
 
-        # Record tasks
-        tasks.append(task_uuid)
-
-    # Write task uuid's to file
-    fp = open(tasks_fn, "w")
-    for t in tasks:
-        fp.write("%s\n" % t)
-    fp.close()
+    print(json.dumps(responses))
 
 
-def task(session, server, uuid):
+def task(session, server, uuid, verbose):
 
     try:
-        print(f"Task query ...")
+        if verbose:
+            print(f"Task query ...", file=sys.stderr)
         resp = session.get(f'https://{server}/task/{uuid}')
         resp.raise_for_status()
-        print("done!")
+        if verbose:
+            print("done!", file=sys.stderr)
         pprint.pprint(resp.json())
     except requests.exceptions.HTTPError as err:
-        print("failed!")
+        if verbose:
+            print("failed!", file=sys.stderr)
         raise SystemExit(err)
 
 
-def sample(session, server, uuid):
+def sample(session, server, uuid, verbose):
 
     try:
-        print(f"Sample query ...")
+        if verbose:
+            print(f"Sample query ...", file=sys.stderr)
         resp = session.get(f'https://{server}/sample/{uuid}')
         resp.raise_for_status()
-        print("done!")
+        if verbose:
+            print("done!", file=sys.stderr)
         pprint.pprint(resp.json())
     except requests.exceptions.HTTPError as err:
-        print("failed!")
+        if verbose:
+            print("failed!", file=sys.stderr)
         raise SystemExit(err)
 
 
-def seq(session, server, sequence):
+def seq(session, server, sequence, verbose):
 
     try:
-        print(f"Sequence query ...")
+        if verbose:
+            print(f"Sequence query ...", file=sys.stderr)
         resp = session.post(f'https://{server}/seq/query', json={
             "inserted_seq": sequence,
         })
         resp.raise_for_status()
-        print("done!")
+        if verbose:
+            print("done!", file=sys.stderr)
         print(resp.json()["message"])
     except requests.exceptions.HTTPError as err:
-        print("failed!")
+        if verbose:
+            print("failed!", file=sys.stderr)
         raise SystemExit(err)
 
 
-def snv(session, server, reference, position, inserted):
+def snv(session, server, reference, position, inserted, verbose):
 
     try:
-        print(f"SNV query ...")
+        if verbose:
+            print(f"SNV query ...", file=sys.stderr)
         resp = session.post(f'https://{server}/snv/query', json={
             "inserted": inserted,
             "reference_seq_id": reference,
             "position": position,
         })
         resp.raise_for_status()
-        print("done!")
+        if verbose:
+            print("done!", file=sys.stderr)
         print(resp.json()["message"])
     except requests.exceptions.HTTPError as err:
-        print("failed!")
+        if verbose:
+            print("failed!", file=sys.stderr)
         raise SystemExit(err)
 
 
-def mnv(session, server, reference, start, end, inserted):
+def mnv(session, server, reference, start, end, inserted, verbose):
 
     try:
-        print(f"MNV query ...")
+        if verbose:
+            print(f"MNV query ...", file=sys.stderr)
         resp = session.post(f'https://{server}/mnv/query', json={
             "start": start,
             "end": end,
@@ -173,59 +182,70 @@ def mnv(session, server, reference, start, end, inserted):
             "reference_seq_id": reference,
         })
         resp.raise_for_status()
-        print("done!")
+        if verbose:
+            print("done!", file=sys.stderr)
         print(resp.json()["message"])
     except requests.exceptions.HTTPError as err:
-        print("failed!")
+        if verbose:
+            print("failed!", file=sys.stderr)
         raise SystemExit(err)
 
 
-def stab(session, server, reference, start, end):
+def stab(session, server, reference, start, end, verbose):
 
     try:
-        print(f"Stab query ...")
+        if verbose:
+            print(f"Stab query ...", file=sys.stderr)
         resp = session.post(f'https://{server}/coverage/query_stab', json={
             "reference_seq_id": reference,
             "start": start,
             "end": end,
         })
         resp.raise_for_status()
-        print("done!")
+        if verbose:
+            print("done!", file=sys.stderr)
         print(resp.json()["message"])
     except requests.exceptions.HTTPError as err:
-        print("failed!")
+        if verbose:
+            print("failed!", file=sys.stderr)
         raise SystemExit(err)
 
 
-def version(session, server):
+def version(session, server, verbose):
 
     try:
-        print(f"Retrieving version ...")
+        if verbose:
+            print(f"Retrieving version ...", file=sys.stderr)
         resp = session.get(f'https://{server}/version')
         resp.raise_for_status()
-        print("done!")
+        if verbose:
+            print("done!", file=sys.stderr)
         ver = resp.json()
         print("%d.%d.%d" % (ver["major"], ver["minor"], ver["patch"]))
     except requests.exceptions.HTTPError as err:
-        print("failed!")
+        if verbose:
+            print("failed!", file=sys.stderr)
         raise SystemExit(err)
 
 
-def save(session, server):
+def save(session, server, verbose):
 
     endpoints = ['coverage', 'seq', 'snv', 'mnv']
     for endpoint in endpoints:
         try:
-            print(f"Saving {endpoint} table ...")
+            if verbose:
+                print(f"Saving {endpoint} table ...", file=sys.stderr)
             resp = session.post(f'https://{server}/{endpoint}/save')
             resp.raise_for_status()
-            print("done!")
+            if verbose:
+                print("done!", file=sys.stderr)
         except requests.exceptions.HTTPError as err:
-            print("failed!")
+            if verbose:
+                print("failed!", file=sys.stderr)
             raise SystemExit(err)
 
 
-def monitor(tasks_fn, server, session):
+def monitor(tasks_fn, server, session, verbose):
     tasks = [line.rstrip('\n') for line in open(tasks_fn)]
 
     while len(tasks):
@@ -249,7 +269,7 @@ def monitor(tasks_fn, server, session):
         time.sleep(1)
 
 
-def upload_helper(session, server, filename, lab_sample_id, disease_code, file_type):
+def upload_helper(session, server, filename, lab_sample_id, disease_code, file_type, verbose):
 
     with open(filename, 'rb') as f:
         payload = {
@@ -263,9 +283,11 @@ def upload_helper(session, server, filename, lab_sample_id, disease_code, file_t
                                 files={"file": f})
             resp.raise_for_status()
             remote_var_fn = resp.json()["filename"]
-            print("done!")
+            if verbose:
+                print("done!", file=sys.stderr)
         except requests.exceptions.HTTPError as err:
-            print("failed!")
+            if verbose:
+                print("failed!", file=sys.stderr)
             raise SystemExit(err)
 
     return remote_var_fn
@@ -276,21 +298,20 @@ def main():
     subparsers = parser.add_subparsers()
     parser.add_argument("-s", "--server", required=False, default=default_server, help="Server hostname")
     parser.add_argument("-c", "--certificate", required=False, help="Certificate")
+    parser.add_argument("-v", "--verbose", required=False, help="Verbose output", default=False, action='store_true')
 
     #
     # Submit subcommand
     #
-    submit_parser = subparsers.add_parser('submit', help='Submit without upload')
+    submit_parser = subparsers.add_parser('submit', help='Submit new sample')
     submit_parser.set_defaults(func=submit)
-    submit_parser.add_argument("-t", "--tasks-file", required=True, dest="tasks_fn",
-                               help="Filename of file to store task uuids")
     submit_parser.add_argument("-d", "--disease-code", required=True,
                                help="Disease indication code")
     submit_parser.add_argument("-l", "--lab-sample-id", required=False,
                                help="Local sample id")
-    group = submit_parser.add_mutually_exclusive_group(required=True)
-    submit_parser.add_argument("-c", "--coverage", required=False, dest="cov_fn",
+    submit_parser.add_argument("-c", "--coverage-file", required=False, dest="cov_fn",
                                help="Varda coverage file")
+    group = submit_parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-s", "--sample-sheet", required=False, dest="samplesheet_fn",
                        help="Sample sheet file: sample_id, gvcf, vcf, bam")
     group.add_argument("-v", "--variants-file", required=False, dest="var_fn",
@@ -321,8 +342,6 @@ def main():
     #
     annotate_parser = subparsers.add_parser('annotate', help='Annotate file(s) with optional upload')
     annotate_parser.set_defaults(func=annotate)
-    annotate_parser.add_argument("-t", "--tasks-file", required=True, dest="tasks_fn",
-                                 help="Filename of file to store task uuids")
     group = annotate_parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-s", "--sample-sheet", required=False, dest="samplesheet_fn",
                        help="Sample sheet file: sample_id, gvcf, vcf, bam")
@@ -419,7 +438,7 @@ def main():
     if func:
         if func == submit and not args['samplesheet_fn'] and \
                 not all(args[x] is not None for x in ['var_fn', 'cov_fn', 'lab_sample_id', 'disease_code']):
-            parser.error('--variants-file, --coverage-file, --lab_sample_id and --disease_code must be given together')
+            parser.error('--variants-file, --coverage-file, --lab-sample-id and --disease-code must be given together')
 
         func(**args)
     else:
