@@ -11,10 +11,11 @@ import sys
 import json
 
 default_server = "varda.lumc.nl"
+default_proto = "https"
 token_env = "VARDA_TOKEN"
 
 
-def submit(samplesheet_fn, var_fn, cov_fn, disease_code, lab_sample_id, server, session, verbose):
+def submit(samplesheet_fn, var_fn, cov_fn, disease_code, lab_sample_id, proto, server, session, verbose):
 
     assert not (samplesheet_fn and var_fn)
 
@@ -31,10 +32,10 @@ def submit(samplesheet_fn, var_fn, cov_fn, disease_code, lab_sample_id, server, 
     else:
         if verbose:
             print("Uploading coverage file ...", file=sys.stderr)
-        remote_cov_fn = upload_helper(session, server, cov_fn, lab_sample_id, disease_code, "coverage", verbose)
+        remote_cov_fn = upload_helper(session, proto, server, cov_fn, lab_sample_id, disease_code, "coverage", verbose)
         if verbose:
             print("Uploading variant file ...", file=sys.stderr)
-        remote_var_fn = upload_helper(session, server, var_fn, lab_sample_id, disease_code, "variant", verbose)
+        remote_var_fn = upload_helper(session, proto, server, var_fn, lab_sample_id, disease_code, "variant", verbose)
         triples.append((lab_sample_id, remote_var_fn, remote_cov_fn))
 
     responses = {}
@@ -45,7 +46,7 @@ def submit(samplesheet_fn, var_fn, cov_fn, disease_code, lab_sample_id, server, 
         try:
             if verbose:
                 print("Creating sample entry ...", file=sys.stderr)
-            resp = session.post(f'https://{server}/sample', json={
+            resp = session.post(f'{proto}://{server}/sample', json={
                 'lab_sample_id': lab_sample_id,
                 'variant_filename': variant_filename,
                 'coverage_filename': coverage_filename,
@@ -66,7 +67,7 @@ def submit(samplesheet_fn, var_fn, cov_fn, disease_code, lab_sample_id, server, 
     print(json.dumps(responses))
 
 
-def annotate(samplesheet_fn, var_fn, session, server, lab_sample_id, verbose):
+def annotate(samplesheet_fn, var_fn, session, proto, server, lab_sample_id, verbose):
 
     assert not (samplesheet_fn and var_fn)
 
@@ -84,13 +85,13 @@ def annotate(samplesheet_fn, var_fn, session, server, lab_sample_id, verbose):
     else:
         if verbose:
             print("Uploading variant file ...", file=sys.stderr)
-        remote_variant_fn = upload_helper(session, server, var_fn, lab_sample_id, "N/A", "variant", verbose)
+        remote_variant_fn = upload_helper(session, proto, server, var_fn, lab_sample_id, "N/A", "variant", verbose)
         tuples.append((lab_sample_id, remote_variant_fn))
 
     # Assuming the files are already in the uploads directory remotely, create and submit samples
     responses = {}
     for pair in tuples:
-        resp = session.post(f'https://{server}/annotation', json={
+        resp = session.post(f'{proto}://{server}/annotation', json={
             'lab_sample_id': pair[0],
             'variant_filename': pair[1],
         })
@@ -100,12 +101,12 @@ def annotate(samplesheet_fn, var_fn, session, server, lab_sample_id, verbose):
     print(json.dumps(responses))
 
 
-def task(session, server, uuid, verbose):
+def task(session, proto, server, uuid, verbose):
 
     try:
         if verbose:
             print(f"Task query ...", file=sys.stderr)
-        resp = session.get(f'https://{server}/task/{uuid}')
+        resp = session.get(f'{proto}://{server}/task/{uuid}')
         resp.raise_for_status()
         if verbose:
             print("done!", file=sys.stderr)
@@ -132,12 +133,12 @@ def sample(session, server, uuid, verbose):
         raise SystemExit(err)
 
 
-def seq(session, server, sequence, verbose):
+def seq(session, proto, server, sequence, verbose):
 
     try:
         if verbose:
             print(f"Sequence query ...", file=sys.stderr)
-        resp = session.post(f'https://{server}/seq/query', json={
+        resp = session.post(f'{proto}://{server}/seq/query', json={
             "inserted_seq": sequence,
         })
         resp.raise_for_status()
@@ -150,12 +151,12 @@ def seq(session, server, sequence, verbose):
         raise SystemExit(err)
 
 
-def snv(session, server, reference, position, inserted, verbose):
+def snv(session, proto, server, reference, position, inserted, verbose):
 
     try:
         if verbose:
             print(f"SNV query ...", file=sys.stderr)
-        resp = session.post(f'https://{server}/snv/query', json={
+        resp = session.post(f'{proto}://{server}/snv/query', json={
             "inserted": inserted,
             "reference_seq_id": reference,
             "position": position,
@@ -170,12 +171,12 @@ def snv(session, server, reference, position, inserted, verbose):
         raise SystemExit(err)
 
 
-def mnv(session, server, reference, start, end, inserted, verbose):
+def mnv(session, proto, server, reference, start, end, inserted, verbose):
 
     try:
         if verbose:
             print(f"MNV query ...", file=sys.stderr)
-        resp = session.post(f'https://{server}/mnv/query', json={
+        resp = session.post(f'{proto}://{server}/mnv/query', json={
             "start": start,
             "end": end,
             "inserted_seq": inserted,
@@ -191,12 +192,12 @@ def mnv(session, server, reference, start, end, inserted, verbose):
         raise SystemExit(err)
 
 
-def stab(session, server, reference, start, end, verbose):
+def stab(session, proto, server, reference, start, end, verbose):
 
     try:
         if verbose:
             print(f"Stab query ...", file=sys.stderr)
-        resp = session.post(f'https://{server}/coverage/query_stab', json={
+        resp = session.post(f'{proto}://{server}/coverage/query_stab', json={
             "reference_seq_id": reference,
             "start": start,
             "end": end,
@@ -211,12 +212,12 @@ def stab(session, server, reference, start, end, verbose):
         raise SystemExit(err)
 
 
-def version(session, server, verbose):
+def version(session, proto, server, verbose):
 
     try:
         if verbose:
             print(f"Retrieving version ...", file=sys.stderr)
-        resp = session.get(f'https://{server}/version')
+        resp = session.get(f'{proto}://{server}/version')
         resp.raise_for_status()
         if verbose:
             print("done!", file=sys.stderr)
@@ -228,14 +229,14 @@ def version(session, server, verbose):
         raise SystemExit(err)
 
 
-def save(session, server, verbose):
+def save(session, proto, server, verbose):
 
     endpoints = ['coverage', 'seq', 'snv', 'mnv']
     for endpoint in endpoints:
         try:
             if verbose:
                 print(f"Saving {endpoint} table ...", file=sys.stderr)
-            resp = session.post(f'https://{server}/{endpoint}/save')
+            resp = session.post(f'{proto}://{server}/{endpoint}/save')
             resp.raise_for_status()
             if verbose:
                 print("done!", file=sys.stderr)
@@ -245,12 +246,12 @@ def save(session, server, verbose):
             raise SystemExit(err)
 
 
-def monitor(tasks_fn, server, session, verbose):
+def monitor(tasks_fn, proto, server, session, verbose):
     tasks = [line.rstrip('\n') for line in open(tasks_fn)]
 
     while len(tasks):
         for task in tasks:
-            resp = session.get(f'https://{server}/task/%s' % task)
+            resp = session.get(f'{proto}://{server}/task/%s' % task)
             state = resp.json()['state']
             if state == 'Done':
                 created = datetime.datetime.strptime(resp.json()['created_date'], '%Y-%m-%dT%H:%M:%S.%f')
@@ -269,7 +270,7 @@ def monitor(tasks_fn, server, session, verbose):
         time.sleep(1)
 
 
-def upload_helper(session, server, filename, lab_sample_id, disease_code, file_type, verbose):
+def upload_helper(session, proto, server, filename, lab_sample_id, disease_code, file_type, verbose):
 
     with open(filename, 'rb') as f:
         payload = {
@@ -279,7 +280,7 @@ def upload_helper(session, server, filename, lab_sample_id, disease_code, file_t
         }
 
         try:
-            resp = session.post(f'https://{server}/file', data=payload,
+            resp = session.post(f'{proto}://{server}/file', data=payload,
                                 files={"file": f})
             resp.raise_for_status()
             remote_var_fn = resp.json()["filename"]
@@ -296,6 +297,7 @@ def upload_helper(session, server, filename, lab_sample_id, disease_code, file_t
 def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
+    parser.add_argument("-p", "--protocol", required=False, default=default_proto, help="Server protocol", dest="proto", choices=["http", "https"])
     parser.add_argument("-s", "--server", required=False, default=default_server, help="Server hostname")
     parser.add_argument("-c", "--certificate", required=False, help="Certificate")
     parser.add_argument("-v", "--verbose", required=False, help="Verbose output", default=False, action='store_true')
