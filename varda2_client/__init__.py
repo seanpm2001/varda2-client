@@ -117,12 +117,26 @@ def task(session, proto, server, uuid, verbose):
         raise SystemExit(err)
 
 
-def sample(session, server, uuid, verbose):
+def sample(session, proto, server, uuid, verbose, disease_code, lab_sample_id):
 
     try:
         if verbose:
             print(f"Sample query ...", file=sys.stderr)
-        resp = session.get(f'https://{server}/sample/{uuid}')
+
+        if not (disease_code or lab_sample_id):
+            resp = session.get(f'{proto}://{server}/sample/{uuid}')
+        else:
+            payload = {}
+            if disease_code:
+                payload.update({
+                    "disease_code": disease_code,
+                })
+            if lab_sample_id:
+                payload.update({
+                    "lab_sample_id": lab_sample_id
+                })
+            resp = session.patch(f'{proto}://{server}/sample/{uuid}', json=payload)
+
         resp.raise_for_status()
         if verbose:
             print("done!", file=sys.stderr)
@@ -399,6 +413,8 @@ def main():
     #
     sample_parser = subparsers.add_parser('sample', help='Sample query')
     sample_parser.add_argument("-u", "--uuid", required=True, help="Sample UUID")
+    sample_parser.add_argument("-d", "--disease-code", required=False, help="Disease indication code")
+    sample_parser.add_argument("-l", "--lab-sample-id", required=False, help="Local sample id")
     sample_parser.set_defaults(func=sample)
 
     #

@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='varda2-client',
-    version='0.6',
+    version='0.7',
     description='A python CLI to Varda2 frequency database server.',
     url='http://github.com/varda/varda2-client',
     author='Mark Santcroos',
