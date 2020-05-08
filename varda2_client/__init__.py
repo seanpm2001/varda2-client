@@ -301,9 +301,11 @@ def upload_helper(session, proto, server, filename, lab_sample_id, disease_code,
             if verbose:
                 print("done!", file=sys.stderr)
         except requests.exceptions.HTTPError as err:
-            if verbose:
+            if 'msg' in resp.json() and resp.json()['msg'] == 'Signature verification failed':
+                raise SystemExit('Invalid token')
+            elif verbose:
                 print("failed!", file=sys.stderr)
-            raise SystemExit(err)
+                raise SystemExit(err)
 
     return remote_var_fn
 
